@@ -16,8 +16,75 @@ model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  gameAccounts GameAccount[]
 
   @@map("users")
+}
+
+model Game {
+  id              String           @id @default(uuid()) @db.Uuid
+  code            String           @unique @db.VarChar(50)
+  name            String           @unique @db.VarChar(100)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
+  accounts        GameAccount[]
+  taskDefinitions TaskDefinition[]
+
+  @@map("games")
+}
+
+model GameAccount {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @db.Uuid
+  gameId      String           @db.Uuid
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(3)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game        Game             @relation(fields: [gameId], references: [id], onDelete: Restrict)
+  completions TaskCompletion[]
+
+  @@unique([userId, gameId])
+  @@index([gameId])
+  @@map("game_accounts")
+}
+
+enum TaskCadence {
+  DAILY
+}
+
+model TaskDefinition {
+  id          String           @id @default(uuid()) @db.Uuid
+  gameId      String           @db.Uuid
+  code        String           @db.VarChar(100)
+  name        String           @db.VarChar(150)
+  description String?
+  targetValue Int              @default(1)
+  targetUnit  String           @default("COMPLETION") @db.VarChar(50)
+  cadence     TaskCadence      @default(DAILY)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(3)
+  game        Game             @relation(fields: [gameId], references: [id], onDelete: Restrict)
+  completions TaskCompletion[]
+
+  @@unique([gameId, code])
+  @@index([gameId, isActive])
+  @@map("task_definitions")
+}
+
+model TaskCompletion {
+  id               String         @id @default(uuid()) @db.Uuid
+  gameAccountId    String         @db.Uuid
+  taskDefinitionId String         @db.Uuid
+  periodDate       DateTime       @db.Date
+  completedAt      DateTime       @default(now()) @db.Timestamptz(3)
+  gameAccount      GameAccount    @relation(fields: [gameAccountId], references: [id], onDelete: Cascade)
+  taskDefinition   TaskDefinition @relation(fields: [taskDefinitionId], references: [id], onDelete: Restrict)
+
+  @@unique([gameAccountId, taskDefinitionId, periodDate])
+  @@index([gameAccountId, periodDate])
+  @@map("task_completions")
 }

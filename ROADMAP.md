@@ -45,16 +45,28 @@ sections below explain the reasoning behind each milestone.
 - [ ] Add a consistent global exception/error response strategy
 - [x] Add Swagger/OpenAPI
 - [x] Add basic request logging
-- [ ] Verify the app starts and connects to PostgreSQL from a clean setup
+- [x] Verify the app starts and connects to PostgreSQL from a clean setup
 
 ### Milestone 1 — Domain model
 
-- [ ] Write down the V0.1 domain rules before creating tables
-- [ ] Model `User`, `Game`, `GameAccount`, `TaskDefinition`, `TaskInstance`, and `ActivityHistory`
-- [ ] Decide which fields are required, nullable, or immutable
+- [x] Write down the V0.1 domain rules before creating tables
+- [ ] Model `User`, `Game`, `GameAccount`, `TaskDefinition`, and `TaskCompletion`
+- [x] Decide which fields are required, nullable, or immutable
 - [ ] Add foreign keys, unique constraints, and indexes intentionally
 - [ ] Create and apply the first Prisma migration
 - [ ] Seed the minimum games/tasks needed for local development
+
+#### V0.1 domain decisions
+
+- A user can track multiple games.
+- A user can have at most one game account per game.
+- `Game` is a shared catalog containing Genshin Impact, Wuthering Waves, and Honkai: Star Rail.
+- `TaskDefinition` belongs to a game and is shared across users.
+- V0.1 tracks one aggregate daily goal per game.
+- `TaskCompletion` is append-only and is created only when a task is completed.
+- One completion is allowed per account, task definition, and daily period.
+- A separate `ActivityHistory` table is deferred; completion records provide the history.
+- Instants use UTC-aware timestamps; the daily period uses a date-only value.
 
 ### Milestone 2 — Authentication
 
