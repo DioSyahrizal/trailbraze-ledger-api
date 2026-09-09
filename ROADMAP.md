@@ -33,7 +33,7 @@ sections below explain the reasoning behind each milestone.
 
 - [x] Generate the NestJS application
 - [x] Enable strict TypeScript
-- [ ] Complete the development bootstrap
+- [x] Complete the development bootstrap
 
 ### Milestone 0 — Development bootstrap
 
@@ -42,7 +42,7 @@ sections below explain the reasoning behind each milestone.
 - [x] Add Prisma and create the initial migration workflow
 - [x] Configure NestJS `ConfigModule`
 - [x] Add the global validation pipe
-- [ ] Add a consistent global exception/error response strategy
+- [x] Add a consistent global exception/error response strategy
 - [x] Add Swagger/OpenAPI
 - [x] Add basic request logging
 - [x] Verify the app starts and connects to PostgreSQL from a clean setup
@@ -50,11 +50,11 @@ sections below explain the reasoning behind each milestone.
 ### Milestone 1 — Domain model
 
 - [x] Write down the V0.1 domain rules before creating tables
-- [ ] Model `User`, `Game`, `GameAccount`, `TaskDefinition`, and `TaskCompletion`
+- [x] Model `User`, `Game`, `GameAccount`, `TaskDefinition`, and `TaskCompletion`
 - [x] Decide which fields are required, nullable, or immutable
-- [ ] Add foreign keys, unique constraints, and indexes intentionally
-- [ ] Create and apply the first Prisma migration
-- [ ] Seed the minimum games/tasks needed for local development
+- [x] Add foreign keys, unique constraints, and indexes intentionally
+- [x] Create and apply the first Prisma migration
+- [x] Seed the minimum games/tasks needed for local development
 
 #### V0.1 domain decisions
 
@@ -70,12 +70,12 @@ sections below explain the reasoning behind each milestone.
 
 ### Milestone 2 — Authentication
 
-- [ ] Implement registration with password hashing
-- [ ] Implement login and JWT access tokens
+- [x] Implement registration with password hashing
+- [x] Implement login and JWT access tokens
 - [ ] Implement refresh-token storage, rotation/revocation, and logout
-- [ ] Add the JWT guard and current-user decorator
-- [ ] Implement `GET /users/me`
-- [ ] Add authentication tests for success and failure cases
+- [x] Add the JWT guard and current-user decorator
+- [x] Implement `GET /users/me`
+- [x] Add authentication tests for success and failure cases
 
 ### Milestone 3 — V0.1 REST API
 
@@ -89,6 +89,19 @@ sections below explain the reasoning behind each milestone.
 - [ ] Add pagination, filtering, and sorting where the collection can grow
 - [ ] Document the endpoints in Swagger
 - [ ] Add a consistent response and error contract
+
+#### Current slice — Game accounts
+
+- [ ] Define the game-account request and response contract
+- [x] Generate the `GameAccountsModule`, controller, and service
+- [x] Add DTO validation for the selected game
+- [ ] Create an account using the authenticated user ID
+- [ ] Resolve the game by its unique code
+- [ ] Map duplicate user/game accounts to `409 Conflict`
+- [ ] List only the authenticated user’s game accounts
+- [ ] Add ownership checks for individual account access
+- [x] Add unit tests for the service and controller
+- [ ] Verify the flow through Postman
 
 ### Milestone 4 — Business rules
 

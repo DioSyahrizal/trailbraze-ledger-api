@@ -7,12 +7,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 
-export interface AccessTokenPayload {
+export type AccessTokenPayload = {
   sub: string;
   email: string;
   iat?: number;
   exp?: number;
-}
+};
 
 type AuthenticatedRequest = Request & {
   user: AccessTokenPayload;

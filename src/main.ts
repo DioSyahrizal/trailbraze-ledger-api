@@ -12,6 +12,7 @@ async function bootstrap() {
     .setTitle('Trailblaze Ledger API')
     .setDescription('Game daily tracker backend API')
     .setVersion('0.1')
+    .addBearerAuth()
     .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);

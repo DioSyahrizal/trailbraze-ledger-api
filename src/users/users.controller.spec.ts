@@ -1,8 +1,9 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { AccessTokenPayload } from '../auth/guards/jwt-auth.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RequestWithUser, UsersController } from './users.controller';
+import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 describe('UsersController', () => {
@@ -46,13 +47,12 @@ describe('UsersController', () => {
 
     usersServiceMock.findById.mockResolvedValue(expectedUser);
 
-    const request = {
-      user: {
-        sub: userId,
-      },
-    } as RequestWithUser;
+    const user: AccessTokenPayload = {
+      sub: userId,
+      email: 'dio@test.com',
+    };
 
-    const result = await controller.getMe(request);
+    const result = await controller.getMe(user);
     expect(usersServiceMock.findById).toHaveBeenCalledWith(userId);
     expect(result).toEqual(expectedUser);
   });
