@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
@@ -29,7 +30,16 @@ export class TasksController {
   async findTodayTasks(
     @CurrentUser() user: AccessTokenPayload,
     @Param('gameAccountId', new ParseUUIDPipe()) gameAccountId: string,
+  ): Promise<TodayTaskResponseDto[]> {
+    return this.tasksService.findTodayTasks(user.sub, gameAccountId);
+  }
+
+  @Post(':taskDefinitionId/complete')
+  async completeTodayTask(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('gameAccountId', new ParseUUIDPipe()) gameAccountId: string,
+    @Param('taskDefinitionId', new ParseUUIDPipe()) taskId: string,
   ) {
-    return await this.tasksService.findTodayTasks(user.sub, gameAccountId);
+    return this.tasksService.completeTodayTask(user.sub, gameAccountId, taskId);
   }
 }

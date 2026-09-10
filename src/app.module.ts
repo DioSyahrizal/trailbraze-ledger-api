@@ -6,8 +6,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { GameAccountsModule } from './game-accounts/game-accounts.module';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
-import { UsersModule } from './users/users.module';
 import { TasksModule } from './tasks/tasks.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [

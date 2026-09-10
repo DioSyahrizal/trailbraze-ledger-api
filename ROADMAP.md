@@ -34,6 +34,10 @@ sections below explain the reasoning behind each milestone.
 - [x] Generate the NestJS application
 - [x] Enable strict TypeScript
 - [x] Complete the development bootstrap
+- [x] Complete the initial domain model and seed data
+- [x] Complete the authentication foundation
+- [x] Implement game accounts and daily task listing/completion
+- [ ] Finish the V0.1 REST API with completion history and end-to-end verification
 
 ### Milestone 0 — Development bootstrap
 
@@ -79,33 +83,47 @@ sections below explain the reasoning behind each milestone.
 
 ### Milestone 3 — V0.1 REST API
 
-- [ ] Create a game account
-- [ ] List a user’s game accounts
-- [ ] Create daily tasks for a game account
-- [ ] List today’s tasks
-- [ ] Complete a task
+- [x] Create a game account
+- [x] List a user’s game accounts
+- [x] Expose seeded daily task definitions for a game account
+- [x] List today’s tasks
+- [x] Complete a task
 - [ ] View completion history
-- [ ] Add DTO validation and ownership checks
+- [x] Add DTO validation and ownership checks
 - [ ] Add pagination, filtering, and sorting where the collection can grow
 - [ ] Document the endpoints in Swagger
 - [ ] Add a consistent response and error contract
 
 #### Current slice — Game accounts
 
-- [ ] Define the game-account request and response contract
+- [x] Define the game-account request and response contract
 - [x] Generate the `GameAccountsModule`, controller, and service
 - [x] Add DTO validation for the selected game
-- [ ] Create an account using the authenticated user ID
-- [ ] Resolve the game by its unique code
-- [ ] Map duplicate user/game accounts to `409 Conflict`
-- [ ] List only the authenticated user’s game accounts
-- [ ] Add ownership checks for individual account access
+- [x] Create an account using the authenticated user ID
+- [x] Resolve the game by its unique code
+- [x] Map duplicate user/game accounts to `409 Conflict`
+- [x] List only the authenticated user’s game accounts
+- [x] Add ownership checks for individual account access
 - [x] Add unit tests for the service and controller
 - [ ] Verify the flow through Postman
 
+#### Current slice — Daily tasks
+
+- [x] Define the today-task read and completion contracts
+- [x] Add the UTC daily-period helper
+- [x] List active daily task definitions for an owned game account
+- [x] Include the account’s completion status for the current period
+- [x] Complete a task for the current UTC period
+- [x] Validate account ownership and task/game ownership
+- [x] Prevent duplicate completion with the composite database constraint
+- [x] Map duplicate completion to `409 Conflict`
+- [x] Add service and controller unit tests
+- [ ] Add a completion response DTO and complete Swagger metadata
+- [ ] Verify the full task flow through Postman or the Vue frontend
+
 ### Milestone 4 — Business rules
 
-- [ ] Prevent completing an already completed task
+- [x] Prevent completing an already completed task
 - [ ] Define daily and weekly period boundaries
 - [ ] Define how task completion affects progress
 - [ ] Define and implement streak rules
@@ -146,14 +164,14 @@ sections below explain the reasoning behind each milestone.
 
 ### Definition of done for V0.1
 
-- [ ] A user can register and log in
-- [ ] A user can create a game account
-- [ ] A user can create and list today’s daily tasks
-- [ ] A user can complete a task exactly once
+- [x] A user can register and log in
+- [x] A user can create a game account
+- [x] A user can list today’s daily tasks
+- [x] A user can complete a task exactly once
 - [ ] A user can view completion history
-- [ ] A second user cannot access another user’s data
+- [x] A second user cannot access another user’s data
 - [ ] The complete flow is covered by at least one E2E test
-- [ ] The API runs with only NestJS and PostgreSQL; Redis, queues, WebSockets, CQRS, and microservices are not required yet
+- [x] The API runs with only NestJS and PostgreSQL; Redis, queues, WebSockets, CQRS, and microservices are not required yet
 
 ---
 
