@@ -28,8 +28,113 @@
 ## Project setup
 
 ```bash
-$ pnpm install
+pnpm install
 ```
+
+## PostgreSQL and Prisma
+
+Start the development PostgreSQL database with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+The development database is exposed on `localhost:5432`. Set its connection
+string in `.env`:
+
+```env
+DATABASE_URL=postgresql://trailblaze:trailblaze_dev_password@localhost:5432/trailblaze_ledger
+```
+
+### Generate Prisma Client
+
+Generate the typed Prisma Client from `prisma/schema.prisma`:
+
+```bash
+pnpm exec prisma generate
+```
+
+Run this after changing the Prisma schema. Prisma ORM 7 does not run
+`prisma generate` automatically after `migrate dev` or `db push`.
+
+### Format the Prisma schema
+
+```bash
+pnpm exec prisma format
+```
+
+### Create and apply a development migration
+
+After editing `prisma/schema.prisma`, create a named migration and apply it to
+the development database:
+
+```bash
+pnpm exec prisma migrate dev --name add_completion_history_fields
+pnpm exec prisma generate
+```
+
+`migrate dev` creates a migration in `prisma/migrations`, applies pending
+migrations, and updates the Prisma migration table. Commit the generated
+migration directory together with the schema change.
+
+### Check migration status
+
+```bash
+pnpm exec prisma migrate status
+```
+
+### Apply existing migrations
+
+Use `migrate deploy` for a test, staging, or production database. It applies
+existing migration files but does not create a new migration or generate
+Prisma Client:
+
+```bash
+pnpm exec prisma migrate deploy
+pnpm exec prisma generate
+```
+
+### Prepare the E2E test database
+
+The test Compose file uses `trailblaze_ledger_test` and maps PostgreSQL to
+`localhost:5433`:
+
+```bash
+docker compose \
+  -f docker-compose.test.yml \
+  -p trailblaze-ledger-test \
+  up -d
+```
+
+Apply the committed migrations to that database. The script sets
+`NODE_ENV=test`, so `prisma7.config.ts` loads `.env.testing`:
+
+```bash
+pnpm run prisma:migrate:test
+```
+
+If the test database needs the shared game and task definitions, seed it with
+an explicit test database URL:
+
+```bash
+DATABASE_URL=postgresql://trailblaze:trailblaze_dev_password@localhost:5433/trailblaze_ledger_test \
+pnpm run db:seed
+```
+
+The test database connection should also be defined in `.env.testing` for the
+Prisma CLI and E2E application. The seed module will be updated to select that
+file based on `NODE_ENV` before the seed command is switched to `NODE_ENV=test`.
+
+### Reset the development database
+
+This deletes development data, reapplies all migrations, and should only be
+used with a disposable local database:
+
+```bash
+pnpm exec prisma migrate reset
+```
+
+Do not use `migrate reset` against a shared, staging, or production database.
 
 ## Compile and run the project
 

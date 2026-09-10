@@ -6,6 +6,12 @@ import { SeedService } from './seed/seed.service';
 
 @Module({
   providers: [SeedService],
-  imports: [DatabaseModule, ConfigModule.forRoot({ isGlobal: true })],
+  imports: [
+    DatabaseModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'test' ? '.env.testing' : '.env',
+    }),
+  ],
 })
 export class SeedModule {}

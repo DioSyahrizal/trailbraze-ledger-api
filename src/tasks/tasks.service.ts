@@ -11,6 +11,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { TaskCadence } from '../generated/prisma/enums';
+import { CompletedHistoryTaskResponseDto } from './dto/today-task-response.dto';
 
 @Injectable()
 export class TasksService {
@@ -127,5 +128,54 @@ export class TasksService {
         throw error;
       }
     }
+  }
+
+  async findCompletionHistory(
+    userId: string,
+    gameAccountId: string,
+  ): Promise<CompletedHistoryTaskResponseDto[]> {
+    const gameAccount = await this.prisma.gameAccount.findFirst({
+      where: {
+        id: gameAccountId,
+        userId,
+      },
+      select: {
+        id: true,
+        game: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!gameAccount) {
+      throw new NotFoundException('Game account not found');
+    }
+
+    const taskCompletions = await this.prisma.taskCompletion.findMany({
+      where: {
+        gameAccountId: gameAccount.id,
+      },
+      orderBy: {
+        completedAt: 'desc',
+      },
+      select: {
+        id: true,
+        gameAccountId: true,
+        taskDefinitionId: true,
+        periodDate: true,
+        completedAt: true,
+      },
+    });
+
+    return taskCompletions.map((taskCompletion) => ({
+      id: taskCompletion.id,
+      gameAccountId: taskCompletion.gameAccountId,
+      gameName: gameAccount.game.name,
+      taskDefinitionId: taskCompletion.taskDefinitionId,
+      periodDate: formatUtcPeriodDate(taskCompletion.periodDate),
+      completedAt: taskCompletion.completedAt.toISOString(),
+    }));
   }
 }

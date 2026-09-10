@@ -6,14 +6,23 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   type AccessTokenPayload,
   JwtAuthGuard,
 } from '../auth/guards/jwt-auth.guard';
-import { TodayTaskResponseDto } from './dto/today-task-response.dto';
+import {
+  CompletedHistoryTaskResponseDto,
+  TaskCompletionResponseDto,
+  TodayTaskResponseDto,
+} from './dto/today-task-response.dto';
 import { TasksService } from './tasks.service';
 
 @ApiTags('tasks')
@@ -34,12 +43,22 @@ export class TasksController {
     return this.tasksService.findTodayTasks(user.sub, gameAccountId);
   }
 
+  @ApiCreatedResponse({ type: TaskCompletionResponseDto })
   @Post(':taskDefinitionId/complete')
   async completeTodayTask(
     @CurrentUser() user: AccessTokenPayload,
     @Param('gameAccountId', new ParseUUIDPipe()) gameAccountId: string,
     @Param('taskDefinitionId', new ParseUUIDPipe()) taskId: string,
-  ) {
+  ): Promise<TaskCompletionResponseDto> {
     return this.tasksService.completeTodayTask(user.sub, gameAccountId, taskId);
+  }
+
+  @ApiOkResponse({ type: [CompletedHistoryTaskResponseDto] })
+  @Get('history')
+  async findCompletionHistory(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('gameAccountId', new ParseUUIDPipe()) gameAccountId: string,
+  ): Promise<CompletedHistoryTaskResponseDto[]> {
+    return this.tasksService.findCompletionHistory(user.sub, gameAccountId);
   }
 }
