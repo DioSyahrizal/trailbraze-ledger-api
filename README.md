@@ -114,16 +114,14 @@ pnpm run prisma:migrate:test
 ```
 
 If the test database needs the shared game and task definitions, seed it with
-an explicit test database URL:
+the test environment:
 
 ```bash
-DATABASE_URL=postgresql://trailblaze:trailblaze_dev_password@localhost:5433/trailblaze_ledger_test \
-pnpm run db:seed
+pnpm run db:seed:test
 ```
 
-The test database connection should also be defined in `.env.testing` for the
-Prisma CLI and E2E application. The seed module will be updated to select that
-file based on `NODE_ENV` before the seed command is switched to `NODE_ENV=test`.
+The test database connection should be defined in `.env.testing` for the
+Prisma CLI, seed process, and E2E application.
 
 ### Reset the development database
 
