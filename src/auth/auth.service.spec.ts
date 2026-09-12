@@ -5,7 +5,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
+import { RedisService } from '../redis/redis.service';
 import { AuthService } from './auth.service';
+import type {
+  AccessTokenPayload,
+  RefreshTokenPayload,
+} from './guards/jwt-auth.guard';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -28,10 +33,10 @@ describe('AuthService', () => {
     createdAt: Date;
   }>;
 
-  type SignAsyncMock = (payload: {
-    sub: string;
-    email: string;
-  }) => Promise<string>;
+  type SignAsyncMock = (
+    payload: AccessTokenPayload | RefreshTokenPayload,
+    options: { expiresIn: string },
+  ) => Promise<string>;
 
   const prismaMock = {
     user: {
@@ -42,6 +47,27 @@ describe('AuthService', () => {
 
   const jwtServiceMock = {
     signAsync: jest.fn<SignAsyncMock>(),
+    verifyAsync:
+      jest.fn<
+        (token: string) => Promise<AccessTokenPayload | RefreshTokenPayload>
+      >(),
+  };
+
+  const transactionMock = {
+    del: jest.fn(() => transactionMock),
+    set: jest.fn(() => transactionMock),
+    exec: jest.fn(async () => []),
+  };
+
+  const redisClientMock = {
+    set: jest.fn(),
+    get: jest.fn<() => Promise<string | null>>(),
+    multi: jest.fn(() => transactionMock),
+    del: jest.fn<(key: string) => Promise<number>>(),
+  };
+
+  const redisServiceMock = {
+    getClient: jest.fn(() => redisClientMock),
   };
 
   beforeEach(async () => {
@@ -57,6 +83,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: jwtServiceMock,
+        },
+        {
+          provide: RedisService,
+          useValue: redisServiceMock,
         },
       ],
     }).compile();
@@ -117,12 +147,15 @@ describe('AuthService', () => {
       passwordHash: 'stored-password-hash',
     };
     const accessToken = 'signed-access-token';
+    const refreshToken = 'signed-refresh-token';
 
     prismaMock.user.findUnique.mockResolvedValue(user);
     const comparePasswordSpy = jest
       .spyOn(service, 'comparePassword')
       .mockResolvedValue(true);
-    jwtServiceMock.signAsync.mockResolvedValue(accessToken);
+    jwtServiceMock.signAsync
+      .mockResolvedValueOnce(accessToken)
+      .mockResolvedValueOnce(refreshToken);
 
     const result = await service.login(
       ' EXISTING@EXAMPLE.COM ',
@@ -138,14 +171,30 @@ describe('AuthService', () => {
       'correct-password',
       'stored-password-hash',
     );
-    expect(jwtServiceMock.signAsync).toHaveBeenCalledWith({
-      sub: 'user-id',
-      email: 'existing@example.com',
-    });
+    expect(jwtServiceMock.signAsync).toHaveBeenNthCalledWith(
+      1,
+      {
+        sub: 'user-id',
+        email: 'existing@example.com',
+        tokenType: 'access',
+      },
+      { expiresIn: '15m' },
+    );
+    expect(jwtServiceMock.signAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        sub: 'user-id',
+        email: 'existing@example.com',
+        tokenType: 'refresh',
+        jti: expect.any(String),
+      }),
+      { expiresIn: '7d' },
+    );
     expect(result).toEqual({
       id: 'user-id',
       email: 'existing@example.com',
       accessToken,
+      refreshToken,
     });
   });
 
@@ -187,5 +236,79 @@ describe('AuthService', () => {
         email: 'existing@example.com',
       },
     });
+  });
+
+  it('rotates a valid refresh token', async () => {
+    const oldRefreshToken = 'old-refresh-token';
+    const newAccessToken = 'new-access-token';
+    const newRefreshToken = 'new-refresh-token';
+    const user = {
+      id: 'user-id',
+      email: 'existing@example.com',
+      passwordHash: 'stored-password-hash',
+    };
+    redisClientMock.get.mockResolvedValue(JSON.stringify({ userId: user.id }));
+    prismaMock.user.findUnique.mockResolvedValue(user);
+    jwtServiceMock.verifyAsync.mockResolvedValue({
+      sub: user.id,
+      email: user.email,
+      tokenType: 'refresh',
+      jti: 'refresh-jti',
+    });
+    jwtServiceMock.signAsync
+      .mockResolvedValueOnce(newAccessToken)
+      .mockResolvedValueOnce(newRefreshToken);
+
+    const result = await service.refreshToken(oldRefreshToken);
+
+    expect(jwtServiceMock.verifyAsync).toHaveBeenCalledWith(oldRefreshToken);
+    expect(redisClientMock.get).toHaveBeenCalledWith(
+      expect.stringMatching(/^auth:session:[0-9a-f]{64}$/),
+    );
+    expect(transactionMock.del).toHaveBeenCalledWith(
+      expect.stringMatching(/^auth:session:[0-9a-f]{64}$/),
+    );
+    expect(transactionMock.set).toHaveBeenCalledWith(
+      expect.stringMatching(/^auth:session:[0-9a-f]{64}$/),
+      JSON.stringify({ userId: user.id }),
+      {
+        expiration: {
+          type: 'EX',
+          value: 60 * 60 * 24 * 7,
+        },
+      },
+    );
+    expect(transactionMock.exec).toHaveBeenCalled();
+    expect(result).toEqual({
+      id: user.id,
+      email: user.email,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  });
+
+  it('rejects a refresh token that is not a refresh JWT', async () => {
+    jwtServiceMock.verifyAsync.mockResolvedValue({
+      sub: 'user-id',
+      email: 'existing@example.com',
+      tokenType: 'access',
+    });
+
+    await expect(service.refreshToken('access-token')).rejects.toThrow(
+      new UnauthorizedException('Invalid refresh token'),
+    );
+
+    expect(redisClientMock.get).not.toHaveBeenCalled();
+  });
+
+  it('clears the refresh token from the redis cache', async () => {
+    const refreshToken = 'refresh-token';
+    redisClientMock.del.mockResolvedValue(1);
+
+    await service.logout(refreshToken);
+
+    expect(redisClientMock.del).toHaveBeenCalledWith(
+      'auth:session:0eb17643d4e9261163783a420859c92c7d212fa9624106a12b510afbec266120',
+    );
   });
 });

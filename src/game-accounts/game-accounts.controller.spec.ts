@@ -42,6 +42,7 @@ describe('GameAccountsController', () => {
     const user: AccessTokenPayload = {
       sub: 'user-id',
       email: 'dio@test.com',
+      tokenType: 'access',
     };
     const expectedResponse = {
       id: 'game-account-id',
@@ -70,6 +71,7 @@ describe('GameAccountsController', () => {
     const user: AccessTokenPayload = {
       sub: 'user-id',
       email: 'dio@test.com',
+      tokenType: 'access',
     };
     const expectedResponse: Awaited<
       ReturnType<GameAccountsService['findAll']>
@@ -86,6 +88,7 @@ describe('GameAccountsController', () => {
     const user: AccessTokenPayload = {
       sub: 'user-id',
       email: 'dio@test.com',
+      tokenType: 'access',
     };
     const expectedResponse = {
       id: 'game-account-id',

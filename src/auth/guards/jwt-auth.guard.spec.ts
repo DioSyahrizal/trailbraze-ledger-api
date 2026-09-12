@@ -4,13 +4,18 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Request } from 'express';
 
-import { AccessTokenPayload, JwtAuthGuard } from './jwt-auth.guard';
+import {
+  type AccessTokenPayload,
+  JwtAuthGuard,
+  type RefreshTokenPayload,
+} from './jwt-auth.guard';
 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
 
   const jwtServiceMock = {
-    verifyAsync: jest.fn<() => Promise<AccessTokenPayload>>(),
+    verifyAsync:
+      jest.fn<() => Promise<AccessTokenPayload | RefreshTokenPayload>>(),
   };
 
   beforeEach(async () => {
@@ -65,6 +70,7 @@ describe('JwtAuthGuard', () => {
     const payload: AccessTokenPayload = {
       sub: 'user-id',
       email: 'user@example.com',
+      tokenType: 'access',
     };
     jwtServiceMock.verifyAsync.mockResolvedValue(payload);
     const { context, request } = createContext('Bearer valid-token');
@@ -73,5 +79,19 @@ describe('JwtAuthGuard', () => {
 
     expect(jwtServiceMock.verifyAsync).toHaveBeenCalledWith('valid-token');
     expect(request.user).toEqual(payload);
+  });
+
+  it('rejects a refresh token as an access token', async () => {
+    jwtServiceMock.verifyAsync.mockResolvedValue({
+      sub: 'user-id',
+      email: 'user@example.com',
+      tokenType: 'refresh',
+      jti: 'refresh-jti',
+    });
+    const { context } = createContext('Bearer refresh-token');
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });

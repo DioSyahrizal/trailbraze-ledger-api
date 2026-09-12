@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { GameAccountsModule } from './game-accounts/game-accounts.module';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
+import { RedisModule } from './redis/redis.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module';
     GameAccountsModule,
     UsersModule,
     TasksModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

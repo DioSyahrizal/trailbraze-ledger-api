@@ -10,6 +10,16 @@ import type { Request } from 'express';
 export type AccessTokenPayload = {
   sub: string;
   email: string;
+  tokenType: 'access';
+  iat?: number;
+  exp?: number;
+};
+
+export type RefreshTokenPayload = {
+  sub: string;
+  email: string;
+  tokenType: 'refresh';
+  jti: string;
   iat?: number;
   exp?: number;
 };
@@ -31,8 +41,14 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      request.user =
+      const payload =
         await this.jwtService.verifyAsync<AccessTokenPayload>(token);
+
+      if (payload.tokenType !== 'access') {
+        throw new UnauthorizedException('Invalid access token');
+      }
+
+      request.user = payload;
       return true;
     } catch {
       throw new UnauthorizedException('Invalid or missing access token');

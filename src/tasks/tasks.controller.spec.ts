@@ -40,6 +40,7 @@ describe('TasksController', () => {
     const user: AccessTokenPayload = {
       sub: 'user-id',
       email: 'dio@test.com',
+      tokenType: 'access',
     };
     const expectedResponse: Awaited<
       ReturnType<TasksService['findTodayTasks']>

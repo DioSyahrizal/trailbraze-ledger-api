@@ -50,6 +50,7 @@ describe('UsersController', () => {
     const user: AccessTokenPayload = {
       sub: userId,
       email: 'dio@test.com',
+      tokenType: 'access',
     };
 
     const result = await controller.getMe(user);
