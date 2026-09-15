@@ -28,6 +28,10 @@ type AuthenticatedRequest = Request & {
   user: AccessTokenPayload;
 };
 
+type TokenRequest = Request & {
+  cookies?: Record<string, unknown>;
+};
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
@@ -59,6 +63,15 @@ export class JwtAuthGuard implements CanActivate {
     const authorization = request.headers.authorization?.trim();
     const match = /^Bearer\s+(\S+)$/i.exec(authorization ?? '');
 
-    return match?.[1];
+    if (match?.[1]) {
+      return match[1];
+    }
+
+    const accessTokenCookie = (request as TokenRequest).cookies?.[
+      'access_token'
+    ];
+    return typeof accessTokenCookie === 'string'
+      ? accessTokenCookie
+      : undefined;
   }
 }

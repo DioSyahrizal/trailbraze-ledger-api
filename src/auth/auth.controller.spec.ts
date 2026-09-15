@@ -13,6 +13,7 @@ describe('AuthController', () => {
     login: jest.fn<AuthService['login']>(),
     register: jest.fn<AuthService['register']>(),
     refreshToken: jest.fn<AuthService['refreshToken']>(),
+    logout: jest.fn<AuthService['logout']>(),
   };
 
   function createResponseMock() {
@@ -67,15 +68,18 @@ describe('AuthController', () => {
     expect(result).toEqual({
       id: 'user-id',
       email: 'dio@test.com',
-      accessToken: 'access-token',
     });
-    expect(response.cookie).toHaveBeenCalledWith(
+    expect(response.cookie).toHaveBeenNthCalledWith(
+      1,
+      'access_token',
+      'access-token',
+      expect.objectContaining({ httpOnly: true, path: '/' }),
+    );
+    expect(response.cookie).toHaveBeenNthCalledWith(
+      2,
       'refresh_token',
       'refresh-token',
-      expect.objectContaining({
-        httpOnly: true,
-        path: '/auth',
-      }),
+      expect.objectContaining({ httpOnly: true, path: '/auth' }),
     );
   });
 
@@ -119,18 +123,21 @@ describe('AuthController', () => {
     expect(authServiceMock.refreshToken).toHaveBeenCalledWith(
       'old-refresh-token',
     );
-    expect(response.cookie).toHaveBeenCalledWith(
+    expect(response.cookie).toHaveBeenNthCalledWith(
+      1,
+      'access_token',
+      'new-access-token',
+      expect.objectContaining({ httpOnly: true, path: '/' }),
+    );
+    expect(response.cookie).toHaveBeenNthCalledWith(
+      2,
       'refresh_token',
       'new-refresh-token',
-      expect.objectContaining({
-        httpOnly: true,
-        path: '/auth',
-      }),
+      expect.objectContaining({ httpOnly: true, path: '/auth' }),
     );
     expect(result).toEqual({
       id: 'user-id',
       email: 'dio@test.com',
-      accessToken: 'new-access-token',
     });
   });
 
@@ -142,5 +149,27 @@ describe('AuthController', () => {
       new UnauthorizedException('Missing refresh token'),
     );
     expect(authServiceMock.refreshToken).not.toHaveBeenCalled();
+  });
+
+  it('deletes the session and clears both auth cookies on logout', async () => {
+    authServiceMock.logout.mockResolvedValue(undefined);
+    const response = createResponseMock();
+    const request = {
+      cookies: { refresh_token: 'refresh-token' },
+    } as unknown as Request;
+
+    await controller.logout(request, response);
+
+    expect(authServiceMock.logout).toHaveBeenCalledWith('refresh-token');
+    expect(response.clearCookie).toHaveBeenNthCalledWith(
+      1,
+      'access_token',
+      expect.objectContaining({ path: '/' }),
+    );
+    expect(response.clearCookie).toHaveBeenNthCalledWith(
+      2,
+      'refresh_token',
+      expect.objectContaining({ path: '/auth' }),
+    );
   });
 });

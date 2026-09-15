@@ -21,7 +21,8 @@ describe('Auth (e2e)', () => {
     const email = `e2e-${randomUUID()}@test.com`;
     const password = 'pass1234';
 
-    const registerResponse = await request(app.getHttpServer())
+    const agent = request.agent(app.getHttpServer());
+    const registerResponse = await agent
       .post('/auth/register')
       .send({
         email,
@@ -29,7 +30,7 @@ describe('Auth (e2e)', () => {
       })
       .expect(201);
 
-    const loginResponse = await request(app.getHttpServer())
+    const loginResponse = await agent
       .post('/auth/login')
       .send({
         email,
@@ -41,9 +42,35 @@ describe('Auth (e2e)', () => {
       expect.objectContaining({
         id: registerResponse.body.id,
         email,
-        accessToken: expect.any(String),
       }),
     );
+    expect(loginResponse.body.accessToken).toBeUndefined();
+    expect(loginResponse.body.refreshToken).toBeUndefined();
+    const loginCookies = loginResponse.headers[
+      'set-cookie'
+    ] as unknown as string[];
+    const accessCookie = loginCookies.find((cookie) =>
+      cookie.startsWith('access_token='),
+    );
+    const refreshCookie = loginCookies.find((cookie) =>
+      cookie.startsWith('refresh_token='),
+    );
+    expect(accessCookie).toContain('HttpOnly');
+    expect(accessCookie).toContain('Path=/');
+    expect(refreshCookie).toContain('HttpOnly');
+    expect(refreshCookie).toContain('Path=/auth');
+
+    await agent
+      .get('/users/me')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual(
+          expect.objectContaining({
+            id: registerResponse.body.id,
+            email,
+          }),
+        );
+      });
   });
 
   it('refreshes using the HttpOnly cookie and rotates the refresh token', async () => {
@@ -58,7 +85,9 @@ describe('Auth (e2e)', () => {
       .send({ email, password })
       .expect(201);
 
-    const loginCookieHeader = loginResponse.headers['set-cookie']?.[0];
+    const loginCookieHeader = (
+      loginResponse.headers['set-cookie'] as unknown as string[] | undefined
+    )?.find((cookie) => cookie.startsWith('refresh_token='));
 
     if (!loginCookieHeader) {
       throw new Error('Login did not return a refresh cookie');
@@ -72,12 +101,15 @@ describe('Auth (e2e)', () => {
       expect.objectContaining({
         id: expect.any(String),
         email,
-        accessToken: expect.any(String),
       }),
     );
+    expect(refreshResponse.body.accessToken).toBeUndefined();
     expect(refreshResponse.body.refreshToken).toBeUndefined();
-    expect(refreshResponse.headers['set-cookie']?.[0]).toEqual(
-      expect.stringContaining('refresh_token='),
+    expect(refreshResponse.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('access_token='),
+        expect.stringContaining('refresh_token='),
+      ]),
     );
 
     await request(app.getHttpServer())
@@ -88,5 +120,32 @@ describe('Auth (e2e)', () => {
 
   it('rejects refresh when the cookie is missing', async () => {
     await request(app.getHttpServer()).post('/auth/refresh').expect(401);
+  });
+
+  it('logs out and clears both cookies', async () => {
+    const email = `e2e-logout-${randomUUID()}@test.com`;
+    const password = 'pass1234';
+    const agent = request.agent(app.getHttpServer());
+
+    await agent.post('/auth/register').send({ email, password }).expect(201);
+    await agent.post('/auth/login').send({ email, password }).expect(201);
+
+    const logoutResponse = await agent.post('/auth/logout').expect(204);
+
+    const clearedCookies = logoutResponse.headers[
+      'set-cookie'
+    ] as unknown as string[];
+    const clearedAccessCookie = clearedCookies.find((cookie) =>
+      cookie.startsWith('access_token='),
+    );
+    const clearedRefreshCookie = clearedCookies.find((cookie) =>
+      cookie.startsWith('refresh_token='),
+    );
+    expect(clearedAccessCookie).toContain('Path=/');
+    expect(clearedAccessCookie).toContain('Expires=Thu, 01 Jan 1970');
+    expect(clearedRefreshCookie).toContain('Path=/auth');
+    expect(clearedRefreshCookie).toContain('Expires=Thu, 01 Jan 1970');
+
+    await agent.post('/auth/refresh').expect(401);
   });
 });

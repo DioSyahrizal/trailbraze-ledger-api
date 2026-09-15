@@ -37,7 +37,16 @@ sections below explain the reasoning behind each milestone.
 - [x] Complete the initial domain model and seed data
 - [x] Complete the authentication foundation
 - [x] Implement game accounts and daily task listing/completion
-- [ ] Finish the V0.1 REST API with completion history and end-to-end verification
+- [x] Finish the V0.1 REST API with completion history and end-to-end verification
+
+### Next task — Verify concurrent task completion
+
+Add an E2E test that sends two identical completion requests at the same time
+for the same game account, task, and UTC period. Assert that exactly one
+request succeeds (`201`), the other receives `409 Conflict`, and only one
+completion record exists. This checks the database unique constraint under a
+race; the current service performs one database write, so an explicit
+transaction is not needed for this case.
 
 ### Milestone 0 — Development bootstrap
 
@@ -76,7 +85,7 @@ sections below explain the reasoning behind each milestone.
 
 - [x] Implement registration with password hashing
 - [x] Implement login and JWT access tokens
-- [ ] Implement refresh-token storage, rotation/revocation, and logout
+- [x] Implement refresh-token storage, rotation/revocation, and logout
 - [x] Add the JWT guard and current-user decorator
 - [x] Implement `GET /users/me`
 - [x] Add authentication tests for success and failure cases
@@ -88,11 +97,11 @@ sections below explain the reasoning behind each milestone.
 - [x] Expose seeded daily task definitions for a game account
 - [x] List today’s tasks
 - [x] Complete a task
-- [ ] View completion history
+- [x] View completion history
 - [x] Add DTO validation and ownership checks
 - [ ] Add pagination, filtering, and sorting where the collection can grow
-- [ ] Document the endpoints in Swagger
-- [ ] Add a consistent response and error contract
+- [ ] Complete Swagger request/response metadata for auth, users, and game-account endpoints
+- [x] Add a consistent global error response contract
 
 #### Current slice — Game accounts
 
@@ -105,7 +114,7 @@ sections below explain the reasoning behind each milestone.
 - [x] List only the authenticated user’s game accounts
 - [x] Add ownership checks for individual account access
 - [x] Add unit tests for the service and controller
-- [ ] Verify the flow through Postman
+- [x] Verify account creation/listing through E2E tests and the Vue frontend
 
 #### Current slice — Daily tasks
 
@@ -118,8 +127,8 @@ sections below explain the reasoning behind each milestone.
 - [x] Prevent duplicate completion with the composite database constraint
 - [x] Map duplicate completion to `409 Conflict`
 - [x] Add service and controller unit tests
-- [ ] Add a completion response DTO and complete Swagger metadata
-- [ ] Verify the full task flow through Postman or the Vue frontend
+- [x] Add a completion response DTO and Swagger metadata for task endpoints
+- [x] Verify the full task flow through E2E tests and the Vue frontend
 
 ### Milestone 4 — Business rules
 
@@ -132,16 +141,16 @@ sections below explain the reasoning behind each milestone.
 
 ### Milestone 5 — Consistency and concurrency
 
-- [ ] Put multi-write completion behavior behind an explicit transaction
-- [ ] Decide which operations must be atomic
-- [ ] Reproduce duplicate completion requests concurrently
-- [ ] Make completion effects happen once with database constraints/atomic updates
+- [x] Enforce at-most-once completion with the composite database constraint and map duplicate writes to `409 Conflict`
+- [ ] Add an E2E concurrency test for duplicate completion requests: exactly one `201`, one `409`, and one stored completion
+- [ ] Decide which future multi-write operations must be atomic and use explicit transactions for them
 - [ ] Add idempotency handling where retries can repeat a command
-- [ ] Add integration/concurrency tests
+- [ ] Add integration tests for transactional and failure-path behavior as those workflows are introduced
 
 ### Milestone 6 — Infrastructure introduced by need
 
-- [ ] Add Redis only after identifying a measurable dashboard/read-performance problem
+- [x] Use Redis for refresh-token session storage and rotation
+- [ ] Add Redis caching only if measurements show a dashboard/read-performance need
 - [ ] Add cache-aside behavior for the dashboard
 - [ ] Define cache keys, TTLs, and invalidation rules
 - [ ] Add BullMQ for work that should not block HTTP requests
@@ -168,10 +177,10 @@ sections below explain the reasoning behind each milestone.
 - [x] A user can create a game account
 - [x] A user can list today’s daily tasks
 - [x] A user can complete a task exactly once
-- [ ] A user can view completion history
+- [x] A user can view completion history
 - [x] A second user cannot access another user’s data
-- [ ] The complete flow is covered by at least one E2E test
-- [x] The API runs with only NestJS and PostgreSQL; Redis, queues, WebSockets, CQRS, and microservices are not required yet
+- [x] The complete registration-to-task-completion/history flow is covered by E2E tests
+- [x] The API is a modular monolith using PostgreSQL for domain data and Redis for auth sessions; queues, WebSockets, CQRS, and microservices are not required yet
 
 ---
 

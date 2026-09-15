@@ -13,7 +13,7 @@ import type { Request, Response } from 'express';
 
 import { LoginDto, RegisterDto } from './auth.dto';
 import { AuthService } from './auth.service';
-import { removeRefreshToken, responseRefreshToken } from './utils/cookies';
+import { removeAuthTokens, responseAuthTokens } from './utils/cookies';
 
 @Controller('auth')
 export class AuthController {
@@ -24,12 +24,12 @@ export class AuthController {
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { refreshToken, ...resp } = await this.authService.login(
+    const { accessToken, refreshToken, ...resp } = await this.authService.login(
       body.email,
       body.password,
     );
 
-    responseRefreshToken(response, refreshToken);
+    responseAuthTokens(response, accessToken, refreshToken);
 
     return resp;
   }
@@ -53,11 +53,10 @@ export class AuthController {
       throw new UnauthorizedException('Missing refresh token');
     }
 
-    const { refreshToken, ...resp } = await this.authService.refreshToken(
-      refreshTokenFromRequest,
-    );
+    const { accessToken, refreshToken, ...resp } =
+      await this.authService.refreshToken(refreshTokenFromRequest);
 
-    responseRefreshToken(response, refreshToken);
+    responseAuthTokens(response, accessToken, refreshToken);
 
     return resp;
   }
@@ -76,7 +75,7 @@ export class AuthController {
         await this.authService.logout(refreshToken);
       }
     } finally {
-      removeRefreshToken(response);
+      removeAuthTokens(response);
     }
   }
 }

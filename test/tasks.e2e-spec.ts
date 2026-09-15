@@ -4,10 +4,11 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { PrismaService } from '../src/database/prisma.service';
 import { createE2eApp } from './utils/create-e2e-app';
 
 type TestSession = {
-  accessToken: string;
+  accessCookie: string;
 };
 
 type TodayTask = {
@@ -42,22 +43,28 @@ async function createTestSession(
     expect.objectContaining({
       id: registerResponse.body.id,
       email,
-      accessToken: expect.any(String),
     }),
   );
 
+  const accessCookieHeader = (
+    loginResponse.headers['set-cookie'] as unknown as string[] | undefined
+  )?.find((cookie) => cookie.startsWith('access_token='));
+  if (!accessCookieHeader) {
+    throw new Error('Login did not return an access-token cookie');
+  }
+
   return {
-    accessToken: loginResponse.body.accessToken as string,
+    accessCookie: accessCookieHeader.split(';')[0],
   };
 }
 
 async function createGenshinAccount(
   app: INestApplication<App>,
-  accessToken: string,
+  accessCookie: string,
 ): Promise<string> {
   const response = await request(app.getHttpServer())
     .post('/game-accounts')
-    .set('Authorization', `Bearer ${accessToken}`)
+    .set('Cookie', accessCookie)
     .send({
       gameCode: 'genshin-impact',
     })
@@ -68,12 +75,12 @@ async function createGenshinAccount(
 
 async function findIncompleteTask(
   app: INestApplication<App>,
-  accessToken: string,
+  accessCookie: string,
   gameAccountId: string,
 ): Promise<TodayTask> {
   const response = await request(app.getHttpServer())
     .get(`/game-accounts/${gameAccountId}/tasks/today`)
-    .set('Authorization', `Bearer ${accessToken}`)
+    .set('Cookie', accessCookie)
     .expect(200);
 
   const tasks = response.body as TodayTask[];
@@ -101,13 +108,10 @@ describe('Tasks (e2e)', () => {
 
   it('completes a task and exposes it in today tasks and history', async () => {
     const session = await createTestSession(app);
-    const gameAccountId = await createGenshinAccount(
-      app,
-      session.accessToken,
-    );
+    const gameAccountId = await createGenshinAccount(app, session.accessCookie);
     const task = await findIncompleteTask(
       app,
-      session.accessToken,
+      session.accessCookie,
       gameAccountId,
     );
 
@@ -115,7 +119,7 @@ describe('Tasks (e2e)', () => {
       .post(
         `/game-accounts/${gameAccountId}/tasks/${task.taskDefinitionId}/complete`,
       )
-      .set('Authorization', `Bearer ${session.accessToken}`)
+      .set('Cookie', session.accessCookie)
       .expect(201);
 
     expect(completionResponse.body).toEqual({
@@ -124,7 +128,7 @@ describe('Tasks (e2e)', () => {
 
     const todayResponse = await request(app.getHttpServer())
       .get(`/game-accounts/${gameAccountId}/tasks/today`)
-      .set('Authorization', `Bearer ${session.accessToken}`)
+      .set('Cookie', session.accessCookie)
       .expect(200);
 
     expect(todayResponse.body).toEqual(
@@ -139,7 +143,7 @@ describe('Tasks (e2e)', () => {
 
     const historyResponse = await request(app.getHttpServer())
       .get(`/game-accounts/${gameAccountId}/tasks/history`)
-      .set('Authorization', `Bearer ${session.accessToken}`)
+      .set('Cookie', session.accessCookie)
       .expect(200);
 
     expect(historyResponse.body).toEqual(
@@ -158,29 +162,65 @@ describe('Tasks (e2e)', () => {
 
   it('rejects completing the same task twice', async () => {
     const session = await createTestSession(app);
-    const gameAccountId = await createGenshinAccount(
-      app,
-      session.accessToken,
-    );
+    const gameAccountId = await createGenshinAccount(app, session.accessCookie);
     const task = await findIncompleteTask(
       app,
-      session.accessToken,
+      session.accessCookie,
       gameAccountId,
     );
     const taskPath = `/game-accounts/${gameAccountId}/tasks/${task.taskDefinitionId}/complete`;
 
     await request(app.getHttpServer())
       .post(taskPath)
-      .set('Authorization', `Bearer ${session.accessToken}`)
+      .set('Cookie', session.accessCookie)
       .expect(201);
 
     await request(app.getHttpServer())
       .post(taskPath)
-      .set('Authorization', `Bearer ${session.accessToken}`)
+      .set('Cookie', session.accessCookie)
       .expect(409)
       .expect(({ body }) => {
         expect(body.message).toBe('Task already completed today');
       });
+  });
+
+  it('stores only one completion when duplicate requests arrive concurrently', async () => {
+    const session = await createTestSession(app);
+    const gameAccountId = await createGenshinAccount(app, session.accessCookie);
+    const task = await findIncompleteTask(
+      app,
+      session.accessCookie,
+      gameAccountId,
+    );
+    const taskPath = `/game-accounts/${gameAccountId}/tasks/${task.taskDefinitionId}/complete`;
+
+    const responses = await Promise.all([
+      request(app.getHttpServer())
+        .post(taskPath)
+        .set('Cookie', session.accessCookie),
+      request(app.getHttpServer())
+        .post(taskPath)
+        .set('Cookie', session.accessCookie),
+    ]);
+
+    expect(
+      responses.map((response) => response.status).sort((a, b) => a - b),
+    ).toEqual([201, 409]);
+
+    const conflictResponse = responses.find(
+      (response) => response.status === 409,
+    );
+    expect(conflictResponse?.body.message).toBe('Task already completed today');
+
+    const prisma = app.get(PrismaService);
+    const completionCount = await prisma.taskCompletion.count({
+      where: {
+        gameAccountId,
+        taskDefinitionId: task.taskDefinitionId,
+      },
+    });
+
+    expect(completionCount).toBe(1);
   });
 
   it('prevents another user from accessing the game account tasks and history', async () => {
@@ -188,17 +228,17 @@ describe('Tasks (e2e)', () => {
     const otherSession = await createTestSession(app);
     const gameAccountId = await createGenshinAccount(
       app,
-      ownerSession.accessToken,
+      ownerSession.accessCookie,
     );
 
     await request(app.getHttpServer())
       .get(`/game-accounts/${gameAccountId}/tasks/today`)
-      .set('Authorization', `Bearer ${otherSession.accessToken}`)
+      .set('Cookie', otherSession.accessCookie)
       .expect(404);
 
     await request(app.getHttpServer())
       .get(`/game-accounts/${gameAccountId}/tasks/history`)
-      .set('Authorization', `Bearer ${otherSession.accessToken}`)
+      .set('Cookie', otherSession.accessCookie)
       .expect(404);
   });
 

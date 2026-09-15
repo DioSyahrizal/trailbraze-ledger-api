@@ -34,9 +34,13 @@ describe('JwtAuthGuard', () => {
     guard = module.get<JwtAuthGuard>(JwtAuthGuard);
   });
 
-  function createContext(authorization?: string) {
+  function createContext(
+    authorization?: string,
+    cookies?: Record<string, string>,
+  ) {
     const request = {
       headers: { authorization },
+      cookies,
     } as Request & { user?: AccessTokenPayload };
 
     const context = {
@@ -78,6 +82,25 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
     expect(jwtServiceMock.verifyAsync).toHaveBeenCalledWith('valid-token');
+    expect(request.user).toEqual(payload);
+  });
+
+  it('authenticates using the access-token cookie', async () => {
+    const payload: AccessTokenPayload = {
+      sub: 'user-id',
+      email: 'user@example.com',
+      tokenType: 'access',
+    };
+    jwtServiceMock.verifyAsync.mockResolvedValue(payload);
+    const { context, request } = createContext(undefined, {
+      access_token: 'cookie-access-token',
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    expect(jwtServiceMock.verifyAsync).toHaveBeenCalledWith(
+      'cookie-access-token',
+    );
     expect(request.user).toEqual(payload);
   });
 
